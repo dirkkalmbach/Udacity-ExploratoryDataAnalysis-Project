@@ -1,0 +1,142 @@
+---
+title: "Exploring Wine Quality"
+author: "Dirk Kalmbach"
+date: "June 2015"
+output: html_document
+---
+
+_**Summary**_ This is the third course project of the Udacity Data Analyst Nanodegree of the corresponding course Data Analysis with R. In this project I show how to explore and summarize a dataset.
+
+----
+
+### Table of Content
+
+[1 Preperation](#Prep)
+
+[2 Exploratory Analysis](#EA)
+
+
+[3 Final Plots and Summary](#Plots)
+
+[4 Reflection](#Reflection)
+
+[5 References](#References)
+
+[Appendix](#Appendix)
+
+----
+
+# <a id='Prep'></a> 1 Preperation
+```{r, message=FALSE}
+
+# Download csv-file to working directory:
+URL <- "https://s3.amazonaws.com/udacity-hosted-downloads/ud651/wineQualityReds.csv"
+download.file(URL, destfile = "./wine.csv", method="curl")
+
+# Open data:
+data = read.csv("wine.csv")
+```
+
+# <a id='EA'></a> 2 Exploratory Analysis
+Some background information:
+A detailed description of the variables can be found in th [appendix](#Appendix).
+```{r, message=FALSE}
+dim(data)
+```
+The dataset consists of 13 variables and 1599 oberservations. Some background reading showed:
+...
+
+Check for missing values:
+```{r, message=FALSE}
+anyNA(data)
+```
+_Five Number Summary_ of the data:
+```{r, message=FALSE}
+summary(data)
+```
+
+Most statistical tests require normally distributed variables.  
+The following graphs gives a first hint how the variables are distributed:
+```{r, message=FALSE}
+par(mfrow=c(3, 5))
+colnames <- dimnames(data)[[2]]
+for (i in 2:13) {
+    hist(data[,i], main=colnames[i], col="gray", border="white")
+}
+```
+
+As we can see, only a few variables seems to be normally distributed (e.g.: `density` and `pH`), moreover most variables are right-skewed. 
+The most important variable is `quality`. Let's print out the distribution of `quality` in more detail:
+```{r, message=FALSE}
+hist(data$quality, col="gray", labels = TRUE)
+abline(v=mean(data$quality), col="red", lwd=4)
+```
+In this case it could make sense to summarize the variable.
+The following code generates a new factor variable `qual_cat` with the values _low quality_ and _high quality_:
+```{r, message=FALSE}
+data$qual_cat <- rep(NA, nrow(data)) #create new column and fill with NA
+data[data$quality <= 5, ][, "qual_cat"] <- "low Quality"
+data[data$quality >= 6, ][, "qual_cat"] <- "high Quality"
+
+table(data$qual_cat)
+```
+
+It could be interesting to explore the independent variables referrring to the new created category `qual_cat`:
+
+```{r, message=FALSE}
+#par(mfrow=c(3, 5))
+colnames <- dimnames(data)[[2]]
+for (i in 2:12) {
+    boxplot(data[,i]~data$qual_cat, main=colnames[i])
+}
+```
+
+We can see that esp. the variables `volatile.acidity` (= "amount of acetic acid in wine, which at too high of levels can lead to an unpleasant, vinegar taste"), `citric.acid`, and `alcohol` seems to have an influence on the wine quality. I.e. high quality red wines have less volatile acidity, more citric acid , and more alcohol.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# <a id='Plots'></a> 3 Final Plots and Summary
+
+# <a id='Reflection'></a> 4 Reflection
+
+# <a id='References'></a>5 References
+
+1. P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis.
+  Modeling wine preferences by data mining from physicochemical properties.
+  In Decision Support Systems, Elsevier, 47(4):547-553. ISSN: 0167-9236. <a id='1'></a>
+
+------
+
+# <a id='Appendix'></a> Appendix
+
+Variable  | Description
+------------- | -------------
+fixed acidity  | most acids involved with wine or fixed or nonvolatile (do not evaporate readily)
+volatile acidity  | the amount of acetic acid in wine, which at too high of levels can lead to an unpleasant, vinegar taste
+citric acid | found in small quantities, citric acid can add 'freshness' and flavor to wines
+residual sugar | the amount of sugar remaining after fermentation stops, it's rare to find wines with less than 1 gram/liter and wines with greater than 45 grams/liter are considered sweet
+chlorides | the amount of salt in the wine
+free sulfur dioxide | the free form of SO2 exists in equilibrium between molecular SO2 (as a dissolved gas) and bisulfite ion; it prevents microbial growth and the oxidation of wine
+total sulfur dioxide | amount of free and bound forms of S02; in low concentrations, SO2 is mostly undetectable in wine, but at free SO2 concentrations over 50 ppm, SO2 becomes evident in the nose and taste of wine
+density | the density of water is close to that of water depending on the percent alcohol and sugar content
+pH | describes how acidic or basic a wine is on a scale from 0 (very acidic) to 14 (very basic); most wines are between 3-4 on the pH scale
+sulphates | a wine additive which can contribute to sulfur dioxide gas (S02) levels, wich acts as an antimicrobial and antioxidant
+alcohol | the percent alcohol content of the wine
+quality | Ouput Variable (score between 0 and 10)
+
