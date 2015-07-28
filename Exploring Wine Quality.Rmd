@@ -1,11 +1,9 @@
 ---
 title: "Exploring Wine Quality"
 author: "Dirk Kalmbach"
-date: "June 2015"
+date: "July 2015"
 output: html_document
 ---
-
-_**Summary**_ This is the third course project of the Udacity Data Analyst Nanodegree of the corresponding course Data Analysis with R. In this project I show how to explore and summarize a dataset.
 
 ----
 
@@ -14,7 +12,6 @@ _**Summary**_ This is the third course project of the Udacity Data Analyst Nanod
 [1 Preperation](#Prep)
 
 [2 Exploratory Analysis](#EA)
-
 
 [3 Final Plots and Summary](#Plots)
 
@@ -27,7 +24,14 @@ _**Summary**_ This is the third course project of the Udacity Data Analyst Nanod
 ----
 
 # <a id='Prep'></a> 1 Preperation
-```{r, message=FALSE}
+```{r global_options, include=FALSE}
+# Suppress warnings and messages:
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+# knitr::opts_chunk$set(fig.width=12, fig.height=8, fig.path='Figs/',
+#                       echo=FALSE, warning=FALSE, message=FALSE)
+```
+
+```{r}
 
 # Download csv-file to working directory:
 URL <- "https://s3.amazonaws.com/udacity-hosted-downloads/ud651/wineQualityReds.csv"
@@ -36,27 +40,33 @@ download.file(URL, destfile = "./wine.csv", method="curl")
 # Open data:
 data = read.csv("wine.csv")
 ```
-
-# <a id='EA'></a> 2 Exploratory Analysis
-Some background information:
-A detailed description of the variables can be found in th [appendix](#Appendix).
-```{r, message=FALSE}
-dim(data)
-```
-The dataset consists of 13 variables and 1599 oberservations. Some background reading showed:
-...
-
-Check for missing values:
+I begin with checking for missing values:
 ```{r, message=FALSE}
 anyNA(data)
 ```
-_Five Number Summary_ of the data:
+There are no missing values in the dataset. I can directly start with exploring the data:
+
+# <a id='EA'></a> 2 Exploratory Analysis
+_**Note:** A detailed description of the variables can be found in the [appendix](#Appendix)._
+```{r, message=FALSE}
+dim(data)
+```
+The dataset consists of 1599 cases with 13 variables per case (1 index, 11 independent, and 1 dependent variables). Every case _(i.e. every row in the dataset)_ represents one particular red wine which was tasted and evaluated by wine experts. The result of this evaluation is stored in the variable `quality`. 
+
+As usual I start the exploration with printing out the first three rows of the dataset:
+```{r, message=FALSE}
+head(data,3)
+```
+I continue with the so called **Five Number Summary** of the data, which shows the spread (minimium and maxiumun), the mean and the 2- and 3-quantiles:
 ```{r, message=FALSE}
 summary(data)
 ```
-
+Beside location parameters it is also useful to investigate the dispersion of the data. I thereforse continue with the standard deviation:
+```{r, message=FALSE}
+sapply(data[2:13], sd)
+```
 Most statistical tests require normally distributed variables.  
-The following graphs gives a first hint how the variables are distributed:
+The following graphs gives us more insights about the distribution of the variables: 
 ```{r, message=FALSE}
 par(mfrow=c(3, 5))
 colnames <- dimnames(data)[[2]]
@@ -65,13 +75,37 @@ for (i in 2:13) {
 }
 ```
 
-As we can see, only a few variables seems to be normally distributed (e.g.: `density` and `pH`), moreover most variables are right-skewed. 
-The most important variable is `quality`. Let's print out the distribution of `quality` in more detail:
+As we can see, only a few variables seem to be normally distributed (e.g.: `density` and `pH`), moreover most variables are right-skewed, and some variables have only a few states (e.g. `chlorides`). 
+
+The most important variable is `quality`. For a better evaluation wether this variable is normally distributed or not I print out a larger histogram:
+```{r, message=FALSE}
+hist(data$quality, col="gray", labels = TRUE)
+```
+From the histogram, we can see that most wines were evaluated with 5 or 6. Contrarily, very high and very low quality wines are not present. The following frequency table shows this more precisely:
+```{r, message=FALSE}
+library(descr)
+freq(data$quality, plot = FALSE)
+```
+
+More than 80% of all wines are evaluated with a 5 or 6 on a 1-to-10-scale.
+
+At this point, I am not sure wether I should assume the variable `quality` normally distributed. The **Shapiro-Wilk-Test** and the **Anderson-Darling-Test** which test against the assumption of normality however show a p-value smaller than 0.1:
+
+````{r}
+# Shapiro-Wilk-Test:
+shapiro.test(data$quality)
+
+# Anderson-Darling-Test:
+library(nortest)
+ad.test(data$quality)
+```
+According to these tests the null hypothetis that the sample came from a normally distributed population should be rejected. On the other side, the large sample size of n=```r nrow(data)``` together with the reasonably accurate bell curve shape indicates that we're should be on the safe side with assuming `quality` as normally distributed. 
+
+However, it could make sense to summarize the variable. The red vertical line shows the average quality of all wines. I suggest to split the wines in two groups: wines below this line (quality scale of 5 and lower) and wines above this lines (quality scale of 6 and higher).
 ```{r, message=FALSE}
 hist(data$quality, col="gray", labels = TRUE)
 abline(v=mean(data$quality), col="red", lwd=4)
 ```
-In this case it could make sense to summarize the variable.
 The following code generates a new factor variable `qual_cat` with the values _low quality_ and _high quality_:
 ```{r, message=FALSE}
 data$qual_cat <- rep(NA, nrow(data)) #create new column and fill with NA
@@ -90,40 +124,193 @@ for (i in 2:12) {
     boxplot(data[,i]~data$qual_cat, main=colnames[i])
 }
 ```
+We can see that esp. the variables `volatile.acidity` (= "amount of acetic acid in wine, which at too high of levels can lead to an unpleasant, vinegar taste"), `citric.acid`, and `alcohol` seems to have an influence on the wine quality. I.e. high quality red wines have less volatile acidity, more citric acid, and more alcohol.
 
-We can see that esp. the variables `volatile.acidity` (= "amount of acetic acid in wine, which at too high of levels can lead to an unpleasant, vinegar taste"), `citric.acid`, and `alcohol` seems to have an influence on the wine quality. I.e. high quality red wines have less volatile acidity, more citric acid , and more alcohol.
+I continue with checking how the independent variables might be influenced by each other:
+```{r, message=FALSE}
+# # Basic Scatterplot Matrix
+# pairs(~fixed.acidity + volatile.acidity + volatile.acidity + 
+#             residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide +
+#             density + pH + sulphates + alcohol,data=data, 
+#    main="Correlation Matrix")
+pairs(data[,2:13], main="Correlation Matrix")
+# # More Advanced Scatterplot Matrix
+# library(car)
+# scatterplot.matrix(~fixed.acidity + volatile.acidity + volatile.acidity + 
+#             residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide +
+#             density + pH + sulphates + alcohol,data=data, main="Correlation Matrix")
+```
 
+The following matrix shows the spearman correlation coefficient between all independent variable pairs: 
+```{r, message=FALSE, warning=FALSE}
+library("psych")
+corr_result <- corr.test(data[2:11])
+corr_result$r
+corr_result$p
+```
+The first table shows the correlation coefficients and the second table the significance values. We can see that some variables are correlated with each other.
 
+As there does not exist an objective guideline for the interpretation of a correlation coefficient,^[2](#2)^ I suggest to consider correlations of more than 0.5 as high. I.e. variable pairs with correlation coefficients of more than 0.5 or less than -0.5. These are:
+- citric.acid <-> fixed.acidity
+- citric.acid <-> volatile.acidity
+- density <-> fixed.acidity
+- citric.acid <-> ph
+- fixed.acidity <-> ph
+- total.sulfur.dioxide <-> free.sulfur.dioxide
 
+Citric.acid is correlated with three other variables. I suggest to keep citric.acid and total.sulfur.dioxide as the latter variable produced a higher R^2^:
+```{r, message=FALSE}
+fit1 <- lm(quality ~ total.sulfur.dioxide, data=data)
+fit2 <- lm(quality ~ free.sulfur.dioxide, data=data)
+sprintf("R2 (total.sulfur.dioxide -> quality): %s", summary(fit1)$r.squared)
+sprintf("R2 (free.sulfur.dioxide -> quality): %s", summary(fit2)$r.squared)
+```
+**Note:** Here I used a simple linar regression model to evaluate the influence of `total.sulfur.dioxide` and `free.sulfur.dioxide` on wine quality. 
+Although it is not appropriate to apply a linear regression model (because of the ordinal character of the dependant variable `quality`), I decided to use this kind of statistical method as this a quick and simple way to evaluate which variable has more influence.
 
+The overall analysis in which I answer the question _which charecteristics have an influence on the wine quality_ will be carried out with a logistic regression:
 
+### Logistic Regression
+Logistic regressions (logits) are used to model dichotomous outcome variables. Typical scenarios for logit-models are linear regressions in which the dependant variable is not metric. In the logit model the _log odds_ of the outcome is modeled as a linear combination of the predictor variables. Log odds are an alternate way of expressing probabilities, log odds are the log of the odds ratio.^[3](#3)^
 
+I start with converting the newly build factor variable `qual_cat` into a dichotomous variable:
+```{r, message=FALSE}
+# Convert qual_cat in binary variable (0="low quality""; 1="high quality"):
+y <- ifelse(data$qual_cat=="high Quality", 1, 0)
+table(y)
+```
+Wines of high (low) quality are now labeled with 1 (0).
 
+Next I call the logit model:
+```{r, message=FALSE}
+# Call logistic regression:
+# mylogit <- glm( y ~ fixed.acidity + volatile.acidity + volatile.acidity + citric.acid +
+#             residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide +
+#             density + pH + sulphates + alcohol, data = data, family = "binomial")
+mylogit <- glm( y ~ volatile.acidity + citric.acid +
+            residual.sugar + chlorides + total.sulfur.dioxide +
+            sulphates + alcohol, data = data, family = "binomial")
+# Print results
+summary(mylogit)
+```
+The matrix shows the logistic regression coefficients. These are the change in the log odds of the outcome variable `qual_cat` for a one unit increase in the predictor variable. The exponential function of this gives us the **odd ratios** which are easier to interpret:
+```{r, message=FALSE}
+exp(cbind(OR = coef(mylogit), confint(mylogit)))
+```
+The above table shows the odd ratios together with the confidence interval. The odd ratios give the change in the log odds of the outcome variable for a one unit increase in the predictor variable. E.g.: for every one unit change in `alcohol`, the log odds of `high quality` (versus `low quality`) increases by 0.87606, i.e.: for every one-unit increase in alcohol the probability that this wine will be evaluated as high quality increases by 2.4% (`exp(0.87606)).
 
+Finally, let's check how well the model fit:
+```{r}
+chi <- with(mylogit, null.deviance - deviance)
+df <- with(mylogit, df.null - df.residual)
+p_value <- with(mylogit, pchisq(null.deviance - deviance, df.null - df.residual, 
+                                lower.tail = FALSE))
+sprintf("Test Statistic (chi2): %s", chi)
+sprintf("Degrees of Freedom: %s", df)
+sprintf("P-value: %s", p_value)
+```
 
-
-
-
-
-
-
-
-
-
+The chi-square of `r chi` with `r df` degrees of freedom and an associated p-value of less than 0.001 tells us that our model as a whole fits significantly better than an empty model.
 
 # <a id='Plots'></a> 3 Final Plots and Summary
+Again, I start with plotting the distribution of the most important variable in the dataset, the wine quality:
+
+```{r, message=FALSE}
+library(ggplot2)
+ggplot(data, aes(x=quality)) +
+    geom_histogram(binwidth=1,data=subset(data,quality<6), fill="red") +
+    geom_histogram(binwidth=1,data=subset(data,quality>5), fill="blue") +
+    xlab('Wine Quality') +
+    ylab('Counts') +
+    ggtitle('Histogram of Wine Quality')
+```
+According to the low range of the variable `quality`, I decided  throughout the analysis to split the dataset in two groups: wines of low quality (marked red) and wines of high quality (marked as blue).
+
+After this, we can easily see how both groups differ:
+```{r, message=FALSE}
+#Create means of variables for each quality category:
+features <- c("volatile.acidity", "citric.acid", "residual.sugar", 
+              "chlorides", "sulphates", "total.sulfur.dioxide", "alcohol")
+features_translated <- c("acetic acid", "citric acid", "residual sugar",
+                     "sodium chloride", "sulphates", "total sulfur dioxide", "alcohol")
+mean_lowQual<-apply(data[data$qual_cat=="low Quality",][,features],2,mean)
+mean_highQual<-apply(data[data$qual_cat=="high Quality",][,features],2,mean)
+
+#Merge both rows:
+means <- rbind(mean_lowQual,mean_highQual)
+means
+
+# Create barplot:
+layout( matrix(c(1,2,3),1,3), widths=c(3,1), heights=c(1,2))
+
+barplot(means[,1:5],beside=T,
+        col = c("red", "blue"), ylab = "g / dm^3",
+        names = features_translated[1:5], las=2)
+
+legend("topright", legend = c("low quality wines","high quality wines"), 
+       pch=15, col = c("red", "blue") )
+
+barplot(means[,6], width=1,beside=T,
+        col = c("red", "blue"), ylab = "mg / dm^3",
+        names = features_translated[6], las=2, space=0)
+
+barplot(means[,7], width=1,beside=T,
+        col = c("red", "blue"), ylab = "% by volume",
+        names = features_translated[7],las=2, space=0)
+```
+Sugar for example does not have an influence on wine quality. Alcohol, acid and sulphates on the other side does have an influence on wine quality: high quality wines contain more alcohol, citric acid and sulphates on average.
+
+However, the dataset contains some outliers:
+```{r, message=FALSE}
+library(ggplot2)
+ggplot(data=data, aes(x=quality, y=alcohol, fill=qual_cat)) + 
+    geom_boxplot() + ggtitle("Alcohol in low quality and high quality wines") + 
+    xlab('Wine Quality') + ylab("Alcohol (%)") + 
+    theme(legend.title=element_blank())
+```
+High percentage of alcohol does not necessarily guarantee high wine quality. Some low quality wines have alcohol strengths of more than 12%.
+
+However, the most important ingredients which determine wine quality are alcohol, sulphates and citric acid. The following graph summarize this finding in a scatterplot:
+```{r, message=FALSE}
+library(scatterplot3d)
+# create column indicating point color
+data$pcolor[data$qual_cat=="low Quality"] <- "red"
+data$pcolor[data$qual_cat=="high Quality"] <- "blue"
+
+with(data, {
+    scatterplot3d(alcohol, citric.acid, sulphates, 
+                  color=pcolor, pch=20, 
+                  xlab="Alocohol (%)",
+                  ylab="Citric Acid",
+                  zlab="Sulphates")
+    legend(x="top", legend = c("Low Quality Wines","High Quality Wines"), col=c("blue","red"), pch=16)
+    title("Alcohol, Citric Acid and Sulphates in low and high quality wines")
+})
+```
 
 # <a id='Reflection'></a> 4 Reflection
+The analysis identified the key factor which influences the quality of red wines: alcohol, citric acid, and sulphates. Other incredients like sugar or chloride only have a minor influence on wine quality.
+
+There are a few limitations to these interpretations:
+First of all, one should keep in mind that the results are only valid for this specific sort of wine and not for red wines in general. Secondly, although the dataset consists of more than 5000 wines, the evaluated qualities are mostly in the middle, between 5 and 7 on a scale of 10. It would be interesting, for example what characteristics extraordinary good (or bad) wines would have.
+
+Throughout the analysis I raised the question how accurate and objective the wine experts validations are. Did all wine experts come to the same test result? Unfortunately the dataset does not contain a variable which identifies the test person. A possible test design for future studies could be to investigate if clusters of wine experts exist which evaluate in a similar way. Those clusters could be described by socio- or psychodemographic variables. E.g.: do younger wine experts evaluate different compared to older experts?
 
 # <a id='References'></a>5 References
 
 1. P. Cortez, A. Cerdeira, F. Almeida, T. Matos and J. Reis.
   Modeling wine preferences by data mining from physicochemical properties.
-  In Decision Support Systems, Elsevier, 47(4):547-553. ISSN: 0167-9236. <a id='1'></a>
+  In: _Decision Support Systems_, Elsevier, 47(4):547-553. ISSN: 0167-9236. <a id='1'></a>
+  
+2. Interpretation of the size of a correlation (2015). In: _Wikipedia._ Retrieved: June 24, 2015, from [Wikipedia](https://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient#Interpretation_of_the_size_of_a_correlation). <a id='2'></a>
+
+3. R Data Analysis Examples: Logit Regression (n.d.). In: _Institute for Digital Research and Education (idre)_ Retrieved: June 24, 2015, from [www.ats.ucla.edu](http://www.ats.ucla.edu/stat/r/dae/logit.htm). <a id='3'></a>
 
 ------
 
 # <a id='Appendix'></a> Appendix
+
+## Variable Description
 
 Variable  | Description
 ------------- | -------------
@@ -140,3 +327,35 @@ sulphates | a wine additive which can contribute to sulfur dioxide gas (S02) lev
 alcohol | the percent alcohol content of the wine
 quality | Ouput Variable (score between 0 and 10)
 
+## Multiple Regression
+```{r}
+model1<-lm(quality ~ 
+             fixed.acidity +
+             volatile.acidity +
+             citric.acid +
+             residual.sugar +
+             chlorides +
+             free.sulfur.dioxide +
+             total.sulfur.dioxide +
+             density  +
+             pH +
+             sulphates +
+             alcohol, data=data )
+summary(model1)
+
+model2 = update(model1, .~.-citric.acid, .~.-residual.sugar)
+summary(model2)
+
+model3 = update(model2, .~.-density)
+summary(model3)
+
+# Stepwise:
+step(model1, direction="backward")
+
+
+
+# Regression Diagnostics:
+par(mfrow=c(2,2))                    # visualize four graphs at once
+plot(model3)
+par(mfrow=c(1,1))                    # reset the graphics defaults
+```
