@@ -5,6 +5,9 @@ date: "July 2015"
 output: html_document
 ---
 
+
+![](/Users/dirkkalmbach/Dropbox/PUBLIC/Pictures_for_Web/DirkKalmbach.png)
+
 ----
 
 ### Table of Content
@@ -12,6 +15,12 @@ output: html_document
 [1 Preperation](#Prep)
 
 [2 Exploratory Analysis](#EA)
+
+- [2.1 Univariate Plots and Analysis](#UP)
+
+- [2.2 Bivariate Plots and Analysis](#BP)
+
+- [2.3 Multivariate Plots and Analysis](#MP)
 
 [3 Final Plots and Summary](#Plots)
 
@@ -48,6 +57,9 @@ There are no missing values in the dataset. I can directly start with exploring 
 
 # <a id='EA'></a> 2 Exploratory Analysis
 _**Note:** A detailed description of the variables can be found in the [appendix](#Appendix)._
+
+## <a id='UP'></a> 2.1 Univariate Plots and Analysis
+
 ```{r, message=FALSE}
 dim(data)
 ```
@@ -66,8 +78,9 @@ Beside location parameters it is also useful to investigate the dispersion of th
 sapply(data[2:13], sd)
 ```
 Most statistical tests require normally distributed variables.  
+
 The following graphs gives us more insights about the distribution of the variables: 
-```{r, message=FALSE}
+```{r, message=FALSE, fig.height=7, fig.width=10}
 par(mfrow=c(3, 5))
 colnames <- dimnames(data)[[2]]
 for (i in 2:13) {
@@ -78,9 +91,13 @@ for (i in 2:13) {
 As we can see, only a few variables seem to be normally distributed (e.g.: `density` and `pH`), moreover most variables are right-skewed, and some variables have only a few states (e.g. `chlorides`). 
 
 The most important variable is `quality`. For a better evaluation wether this variable is normally distributed or not I print out a larger histogram:
-```{r, message=FALSE}
-hist(data$quality, col="gray", labels = TRUE)
+```{r, message=FALSE, fig.height=7}
+#hist(data$quality, col="gray", labels = TRUE)
+library(ggplot2)
+ggplot(data, aes(x=quality)) + geom_histogram() + scale_x_discrete() + 
+    ggtitle("Histogram of wine quality")
 ```
+
 From the histogram, we can see that most wines were evaluated with 5 or 6. Contrarily, very high and very low quality wines are not present. The following frequency table shows this more precisely:
 ```{r, message=FALSE}
 library(descr)
@@ -89,7 +106,7 @@ freq(data$quality, plot = FALSE)
 
 More than 80% of all wines are evaluated with a 5 or 6 on a 1-to-10-scale.
 
-At this point, I am not sure wether I should assume the variable `quality` normally distributed. The **Shapiro-Wilk-Test** and the **Anderson-Darling-Test** which test against the assumption of normality however show a p-value smaller than 0.1:
+At this point, I am not sure wether I should assume the variable `quality` normally distributed or not. The **Shapiro-Wilk-Test** and the **Anderson-Darling-Test** which test against the assumption of normality however show a p-value smaller than 0.1:
 
 ````{r}
 # Shapiro-Wilk-Test:
@@ -99,13 +116,18 @@ shapiro.test(data$quality)
 library(nortest)
 ad.test(data$quality)
 ```
-According to these tests the null hypothetis that the sample came from a normally distributed population should be rejected. On the other side, the large sample size of n=```r nrow(data)``` together with the reasonably accurate bell curve shape indicates that we're should be on the safe side with assuming `quality` as normally distributed. 
+According to these tests, the null hypothetis that the sample came from a normally distributed population should be rejected. On the other side, the large sample size of n=```r nrow(data)``` together with the reasonably accurate bell curve shape indicates that we're should be on the safe side with assuming `quality` as normally distributed. 
 
+## <a id='BP'></a> 2.2 Bivariate Plots and Analysis
 However, it could make sense to summarize the variable. The red vertical line shows the average quality of all wines. I suggest to split the wines in two groups: wines below this line (quality scale of 5 and lower) and wines above this lines (quality scale of 6 and higher).
-```{r, message=FALSE}
-hist(data$quality, col="gray", labels = TRUE)
-abline(v=mean(data$quality), col="red", lwd=4)
+```{r, message=FALSE, fig.height=7}
+#hist(data$quality, col="gray", labels = TRUE)
+#abline(v=mean(data$quality), col="red", lwd=4)
+ggplot(data, aes(x=quality)) + geom_histogram() + scale_x_discrete() + 
+    geom_vline(data=data, aes(xintercept=mean(data$quality), colour="red") ) + 
+    ggtitle("Histogram of wine quality")
 ```
+
 The following code generates a new factor variable `qual_cat` with the values _low quality_ and _high quality_:
 ```{r, message=FALSE}
 data$qual_cat <- rep(NA, nrow(data)) #create new column and fill with NA
@@ -118,30 +140,20 @@ table(data$qual_cat)
 It could be interesting to explore the independent variables referrring to the new created category `qual_cat`:
 
 ```{r, message=FALSE}
-#par(mfrow=c(3, 5))
 colnames <- dimnames(data)[[2]]
 for (i in 2:12) {
     boxplot(data[,i]~data$qual_cat, main=colnames[i])
 }
 ```
-We can see that esp. the variables `volatile.acidity` (= "amount of acetic acid in wine, which at too high of levels can lead to an unpleasant, vinegar taste"), `citric.acid`, and `alcohol` seems to have an influence on the wine quality. I.e. high quality red wines have less volatile acidity, more citric acid, and more alcohol.
 
-I continue with checking how the independent variables might be influenced by each other:
-```{r, message=FALSE}
-# # Basic Scatterplot Matrix
-# pairs(~fixed.acidity + volatile.acidity + volatile.acidity + 
-#             residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide +
-#             density + pH + sulphates + alcohol,data=data, 
-#    main="Correlation Matrix")
-pairs(data[,2:13], main="Correlation Matrix")
-# # More Advanced Scatterplot Matrix
-# library(car)
-# scatterplot.matrix(~fixed.acidity + volatile.acidity + volatile.acidity + 
-#             residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide +
-#             density + pH + sulphates + alcohol,data=data, main="Correlation Matrix")
-```
+These boxplots show us the maximum and minimium, the 25%, 50% (median) and 75% quantile and the outliers. 
 
-The following matrix shows the spearman correlation coefficient between all independent variable pairs: 
+We can see that esp. the variables `volatile.acidity` _(= "amount of acetic acid in wine, which at too high of levels can lead to an unpleasant, vinegar taste")_, `citric.acid`,`volatile acidity`, and `alcohol` seems to have an influence on the wine quality as the median of both boxplots strongly differs. 
+Some variables also contain many outliers and in some cases the occurance of outliers depends on the wine quality. For example: high quality wines have on average more alcohol, but some wines with high alcohol concentration are low quality wines (outliers). Similar findings for total.sulfur.dioxide: low quality wines have on average more total.sulfur.dioxide, but some wines a high concentraion of total.sulfur.dioxide are high quality wines
+
+To summarize these boxplots: _high quality red wines have less `volatile acidity`, more `citric acid`, and more `alcohol`.
+
+I continue with checking how the independent variables might be influenced by each other. The following matrix shows the spearman correlation coefficient between all independent variable pairs: 
 ```{r, message=FALSE, warning=FALSE}
 library("psych")
 corr_result <- corr.test(data[2:11])
@@ -150,13 +162,130 @@ corr_result$p
 ```
 The first table shows the correlation coefficients and the second table the significance values. We can see that some variables are correlated with each other.
 
-As there does not exist an objective guideline for the interpretation of a correlation coefficient,^[2](#2)^ I suggest to consider correlations of more than 0.5 as high. I.e. variable pairs with correlation coefficients of more than 0.5 or less than -0.5. These are:
+As there does not exist an objective guideline for the interpretation of a correlation coefficient,^[[2]](#2)^ I suggest to consider correlations of more than 0.5 as high. I.e. variable pairs with correlation coefficients of more than 0.5 or less than -0.5. These are:
+
 - citric.acid <-> fixed.acidity
 - citric.acid <-> volatile.acidity
 - density <-> fixed.acidity
 - citric.acid <-> ph
 - fixed.acidity <-> ph
 - total.sulfur.dioxide <-> free.sulfur.dioxide
+
+Let's now investigate these variables in more detail:
+```{r, message=FALSE, warning=FALSE, cache=TRUE, fig.width=12, fig.height=12}
+library(car)
+scatterplotMatrix(~citric.acid + fixed.acidity 
+                   + volatile.acidity
+                   + density + pH
+                   + total.sulfur.dioxide + free.sulfur.dioxide, data=data)
+```
+
+In this matrix scatterplot, the diagonal cells show histograms of each of the variables. Each of the off-diagonal cells is a scatterplot of two of the 7 variables. For example: the second cell in the first row in the second matrix is a scatterplot of `citric.acid` against `fixed.acidity`.
+
+We see some variable pairs with positive or negative relationship. I summarized these in the following table:
+
+Variable Pair  | Visual Relationship
+------------- | -------------
+citric.acid - fixed.acidity  | positive
+density - fixed.acidity   | positive
+ph - fixed.acidity   | negative
+ph - citric.acidity   | negative
+total.sulfur.dioxide - free.sulfur.dioxide | positive
+
+We'll investigate these variable pairs in more detail in the next section.
+
+## <a id='BP'></a> 2.3 Multivariate Plots and Analysis
+
+#### Are variables depending on the index?
+
+So far, we haven't examined wether the data is independent of the index of the data. E.g., it could be possible that wine experts tend to evaluate different from each other. And if the order of the data is not independent of the experts _(e.g. first 25 wines were evaluated by expert A, second 25 wines from expert B, etc.)_ we should see a pattern in the data.
+
+The following code - _adopted from Avril Coghlan ^[[4]](#4)^_ - prints out the 13 variables and their indices:
+
+```{r, message=FALSE, warning=FALSE, echo=TRUE, cache=TRUE}
+makeProfilePlot <- function(mylist,names)
+{
+    require(RColorBrewer)
+    # find out how many variables we want to include
+    numvariables <- length(mylist)
+    # choose 'numvariables' random colours
+    colours <- brewer.pal(numvariables,"Set1")
+    # find out the minimum and maximum values of the variables:
+    mymin <- 1e+20
+    mymax <- 1e-20
+    for (i in 1:numvariables)
+    {
+        vectori <- mylist[[i]]
+        mini <- min(vectori)
+        maxi <- max(vectori)
+        if (mini < mymin) { mymin <- mini }
+        if (maxi > mymax) { mymax <- maxi }
+    }
+    # plot the variables
+    for (i in 1:numvariables)
+    {
+        vectori <- mylist[[i]]
+        namei <- names[i]
+        colouri <- colours[i]
+        if (i == 1) { plot(vectori,col=colouri,type="l",ylim=c(mymin,mymax)) }
+        else         { points(vectori, col=colouri,type="l")                                     }
+        lastxval <- length(vectori)
+        lastyval <- vectori[length(vectori)]
+        text((lastxval-200),(lastyval),namei,col="black",cex=0.9)
+    }
+}
+
+# Plot first 4 variables
+library(RColorBrewer)
+names <- colnames(data[2:5])
+#mylist <- list(data[1],data[2], data[3])
+#mylist <- list(data$fixed.acidity,data$volatile.acidity,data$citric.acid,data$residual.sugar, data$chlorides)
+mylist <- data[2:5]
+makeProfilePlot(mylist,names)
+
+
+# Plot next 4 variables
+library(RColorBrewer)
+names <- colnames(data[6:9])
+#mylist <- list(data[1],data[2], data[3])
+#mylist <- list(data$fixed.acidity,data$volatile.acidity,data$citric.acid,data$residual.sugar, data$chlorides)
+mylist <- data[6:9]
+makeProfilePlot(mylist,names)
+
+# Plot next 4 variables
+library(RColorBrewer)
+names <- colnames(data[10:13])
+#mylist <- list(data[1],data[2], data[3])
+#mylist <- list(data$fixed.acidity,data$volatile.acidity,data$citric.acid,data$residual.sugar, data$chlorides)
+mylist <- data[10:13]
+makeProfilePlot(mylist,names)
+```
+
+We see from all three graphs that all variables are independent of the index. _So no cause for concern here._ But we can also see, that the variable `total.sulfur.dioxide` contains two heavy outliers which seem to lie next to each other.
+
+#### Are these two outliers are not emerged by chance?
+
+Let's print out the exact indices of both outliers:
+
+```{r, message=FALSE, warning=FALSE, echo=TRUE, cache=TRUE}
+which(data$total.sulfur.dioxide>200)
+```
+
+Unlike expected, both outliers don't lie next to each other - _so no cause for concern here_. We do not have to correct this.
+
+#### Are correlations between variables caused by wine quality?
+
+We saw from scatterplot matrix in the previous section that some variables seems to have positive or negative relationships. Let's investigate how these variable-pair-relationships differ between low and high quality wines:
+
+```{r, message=FALSE, warning=FALSE, echo=TRUE, cache=TRUE}
+data$qual_cat <- factor(data$qual_cat)
+with (data, plot(citric.acid,fixed.acidity, col=qual_cat, pch=19))
+with (data, plot(density,fixed.acidity, col=qual_cat, pch=19))
+with (data, plot(pH, citric.acid, col=qual_cat, pch=19))
+with (data, plot(total.sulfur.dioxide, free.sulfur.dioxide, col=qual_cat, pch=19))
+```
+
+These plots could answer the question whether the correlations are influenced by wine quality or not (this would be the case when for example most black points are on the left and most red points on the right). Unfortunately, we do not see any strong patterns - the correlations between `fixed.acidity` and `density`, between `citric.acid` and `pH`, and between `free.sulfur.dioxide` and `total.sulfur.dioxide` are not caused by wine quality. 
 
 Citric.acid is correlated with three other variables. I suggest to keep citric.acid and total.sulfur.dioxide as the latter variable produced a higher R^2^:
 ```{r, message=FALSE}
@@ -171,7 +300,7 @@ Although it is not appropriate to apply a linear regression model (because of th
 The overall analysis in which I answer the question _which charecteristics have an influence on the wine quality_ will be carried out with a logistic regression:
 
 ### Logistic Regression
-Logistic regressions (logits) are used to model dichotomous outcome variables. Typical scenarios for logit-models are linear regressions in which the dependant variable is not metric. In the logit model the _log odds_ of the outcome is modeled as a linear combination of the predictor variables. Log odds are an alternate way of expressing probabilities, log odds are the log of the odds ratio.^[3](#3)^
+Logistic regressions (logits) are used to model dichotomous outcome variables. Typical scenarios for logit-models are linear regressions in which the dependant variable is not metric. In the logit model the _log odds_ of the outcome is modeled as a linear combination of the predictor variables. Log odds are an alternate way of expressing probabilities, log odds are the log of the odds ratio.^[[3]](#3)^
 
 I start with converting the newly build factor variable `qual_cat` into a dichotomous variable:
 ```{r, message=FALSE}
@@ -183,14 +312,9 @@ Wines of high (low) quality are now labeled with 1 (0).
 
 Next I call the logit model:
 ```{r, message=FALSE}
-# Call logistic regression:
-# mylogit <- glm( y ~ fixed.acidity + volatile.acidity + volatile.acidity + citric.acid +
-#             residual.sugar + chlorides + free.sulfur.dioxide + total.sulfur.dioxide +
-#             density + pH + sulphates + alcohol, data = data, family = "binomial")
 mylogit <- glm( y ~ volatile.acidity + citric.acid +
             residual.sugar + chlorides + total.sulfur.dioxide +
             sulphates + alcohol, data = data, family = "binomial")
-# Print results
 summary(mylogit)
 ```
 The matrix shows the logistic regression coefficients. These are the change in the log odds of the outcome variable `qual_cat` for a one unit increase in the predictor variable. The exponential function of this gives us the **odd ratios** which are easier to interpret:
@@ -213,17 +337,6 @@ sprintf("P-value: %s", p_value)
 The chi-square of `r chi` with `r df` degrees of freedom and an associated p-value of less than 0.001 tells us that our model as a whole fits significantly better than an empty model.
 
 # <a id='Plots'></a> 3 Final Plots and Summary
-Again, I start with plotting the distribution of the most important variable in the dataset, the wine quality:
-
-```{r, message=FALSE}
-library(ggplot2)
-ggplot(data, aes(x=quality)) +
-    geom_histogram(binwidth=1,data=subset(data,quality<6), fill="red") +
-    geom_histogram(binwidth=1,data=subset(data,quality>5), fill="blue") +
-    xlab('Wine Quality') +
-    ylab('Counts') +
-    ggtitle('Histogram of Wine Quality')
-```
 According to the low range of the variable `quality`, I decided  throughout the analysis to split the dataset in two groups: wines of low quality (marked red) and wines of high quality (marked as blue).
 
 After this, we can easily see how both groups differ:
@@ -232,7 +345,8 @@ After this, we can easily see how both groups differ:
 features <- c("volatile.acidity", "citric.acid", "residual.sugar", 
               "chlorides", "sulphates", "total.sulfur.dioxide", "alcohol")
 features_translated <- c("acetic acid", "citric acid", "residual sugar",
-                     "sodium chloride", "sulphates", "total sulfur dioxide", "alcohol")
+                     "sodium chloride", "sulphates", 
+                     "total sulfur dioxide", "alcohol")
 mean_lowQual<-apply(data[data$qual_cat=="low Quality",][,features],2,mean)
 mean_highQual<-apply(data[data$qual_cat=="high Quality",][,features],2,mean)
 
@@ -258,6 +372,7 @@ barplot(means[,7], width=1,beside=T,
         col = c("red", "blue"), ylab = "% by volume",
         names = features_translated[7],las=2, space=0)
 ```
+
 Sugar for example does not have an influence on wine quality. Alcohol, acid and sulphates on the other side does have an influence on wine quality: high quality wines contain more alcohol, citric acid and sulphates on average.
 
 However, the dataset contains some outliers:
@@ -268,28 +383,43 @@ ggplot(data=data, aes(x=quality, y=alcohol, fill=qual_cat)) +
     xlab('Wine Quality') + ylab("Alcohol (%)") + 
     theme(legend.title=element_blank())
 ```
+
 High percentage of alcohol does not necessarily guarantee high wine quality. Some low quality wines have alcohol strengths of more than 12%.
 
-However, the most important ingredients which determine wine quality are alcohol, sulphates and citric acid. The following graph summarize this finding in a scatterplot:
-```{r, message=FALSE}
-library(scatterplot3d)
-# create column indicating point color
-data$pcolor[data$qual_cat=="low Quality"] <- "red"
-data$pcolor[data$qual_cat=="high Quality"] <- "blue"
+However, the most important ingredients which determine wine quality (beside sulphates) alcohol, volatile acity and citric acid. The following graph summarize this findings :
 
-with(data, {
-    scatterplot3d(alcohol, citric.acid, sulphates, 
-                  color=pcolor, pch=20, 
-                  xlab="Alocohol (%)",
-                  ylab="Citric Acid",
-                  zlab="Sulphates")
-    legend(x="top", legend = c("Low Quality Wines","High Quality Wines"), col=c("blue","red"), pch=16)
-    title("Alcohol, Citric Acid and Sulphates in low and high quality wines")
-})
+```{r, message=FALSE, fig.height=8}
+library(gridExtra)
+levels(data$qual_cat) <- c("High Quality Wines", "Low Quality Wines")
+
+g1 <- ggplot(data, aes(alcohol, volatile.acidity)) + ggtitle("Alcohol vs. Volatile Acidity in High- and Low-Quality Wines") +
+ylab("Volatile Acidity (g / dm^3)") + xlab("Alcohol (% volume)") +
+geom_point(aes(color = qual_cat), size=2, alpha=1/2) +
+geom_smooth(method="lm") + 
+facet_grid(.~qual_cat) +
+theme_bw()+ theme(legend.position = "none")
+
+g2 <- ggplot(data, aes(alcohol, citric.acid)) + ggtitle("Alcohol vs. Citric Acid in High- and Low-Quality Wines") +
+ylab("Citric Acid (g / dm^3)") + xlab("Alcohol (% volume)") +
+geom_point(aes(color = qual_cat), size=2, alpha=1/2) +
+geom_smooth(method="lm") + 
+facet_grid(.~qual_cat) +
+theme_bw()+ theme(legend.position = "none")
+
+grid.arrange(g1, g2, ncol=1)
 ```
 
+We can see from the graphs that the relationship between alcohol and volatile acitiy as well as between alcohol and citric acid differs between high and low quality wines.
+
+_These graphs provide useful information for wine-grower:_
+
+For example: we know that high quality wines usually contain more alcohol.
+A wine maker who therefore wants to increase the amount of alcohol, should also control the amount of volatile acidity as high-quality wines are characterized by a negative realtionship between both substances.
+
+The opposite is true for citric acid: while increasing the amount of alcohol, the wine maker should try to increase the citric acid as high-quality wines are characterized by a positive relationship between alcohol and citric acid.
+
 # <a id='Reflection'></a> 4 Reflection
-The analysis identified the key factor which influences the quality of red wines: alcohol, citric acid, and sulphates. Other incredients like sugar or chloride only have a minor influence on wine quality.
+The analysis identified the key factor which influences the quality of red wines: alcohol, citric acid, volatile acidiyt, and sulphates. Other incredients like sugar or chloride only have a minor influence on wine quality.
 
 There are a few limitations to these interpretations:
 First of all, one should keep in mind that the results are only valid for this specific sort of wine and not for red wines in general. Secondly, although the dataset consists of more than 5000 wines, the evaluated qualities are mostly in the middle, between 5 and 7 on a scale of 10. It would be interesting, for example what characteristics extraordinary good (or bad) wines would have.
@@ -305,6 +435,8 @@ Throughout the analysis I raised the question how accurate and objective the win
 2. Interpretation of the size of a correlation (2015). In: _Wikipedia._ Retrieved: June 24, 2015, from [Wikipedia](https://en.wikipedia.org/wiki/Pearson_product-moment_correlation_coefficient#Interpretation_of_the_size_of_a_correlation). <a id='2'></a>
 
 3. R Data Analysis Examples: Logit Regression (n.d.). In: _Institute for Digital Research and Education (idre)_ Retrieved: June 24, 2015, from [www.ats.ucla.edu](http://www.ats.ucla.edu/stat/r/dae/logit.htm). <a id='3'></a>
+
+4. A. Coghlan. Using R for Multivariate Analysis (n.d.). In: _Little Book of R for Multivariate Analysis_ Retrieved: August 5, 2015, from [www.readthedocs.com](http://little-book-of-r-for-multivariate-analysis.readthedocs.org/en/latest/src/multivariateanalysis.html). <a id='4'></a>
 
 ------
 
@@ -357,5 +489,4 @@ step(model1, direction="backward")
 # Regression Diagnostics:
 par(mfrow=c(2,2))                    # visualize four graphs at once
 plot(model3)
-par(mfrow=c(1,1))                    # reset the graphics defaults
 ```
